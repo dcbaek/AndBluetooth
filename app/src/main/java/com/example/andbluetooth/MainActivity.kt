@@ -12,14 +12,18 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
+import android.service.autofill.Dataset
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
-import android.widget.Toast
-import android.widget.ToggleButton
+import android.view.ViewGroup
+import android.view.ViewManager
+import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.security.Permissions
 import java.util.regex.MatchResult
 
@@ -37,6 +41,9 @@ class MainActivity : AppCompatActivity() {
     private var devicesArr = ArrayList<BluetoothDevice>()
     private val SCAN_PERIOD = 1000
     private val handler = Handler()
+
+    private lateinit var viewManager: RecyclerView.LayoutManager
+    private lateinit var recyclerViewAdapter: RecyclerViewAdapter
 
     private val mLeScanCallback = @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     object : ScanCallback() {
@@ -123,6 +130,13 @@ class MainActivity : AppCompatActivity() {
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
+        viewManager = LinearLayoutManager(this)
+        recyclerViewAdapter = RecyclerViewAdapter(devicesArr)
+        val recyclerView = findViewById<RecyclerView>(R.id.recyclerView).apply {
+            layoutManager = viewManager
+            adapter = recyclerViewAdapter
+        }
+
         if(bluetoothAdapter!=null){
             // Device doesn't support Bluetooth
             if(bluetoothAdapter?.isEnabled==false){
@@ -166,4 +180,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+class RecyclerViewAdapter(private val myDataset: ArrayList<BluetoothDevice>):
+        RecyclerView.Adapter<RecyclerViewAdapter.MyViewHolder> () {
+            class MyViewHolder(val linearView: LinearLayout):RecyclerView.ViewHolder(linearView)
+            override fun onCreateViewHolder(parent: ViewGroup,
+            viewType: Int):RecyclerViewAdapter.MyViewHolder {
+                //create a new view
+                val linearView = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.recyclerview_item, parent, false) as LinearLayout
+                return MyViewHolder(linearView)
+            }
+
+    override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
+        val itemName: TextView = holder.linearView.findViewById(R.id.item_name)
+        val itemAddress: TextView = holder.linearView.findViewById(R.id.item_address)
+        itemName.text = myDataset[position].name
+        itemAddress.text = myDataset[position].address
+    }
+
+    override fun getItemCount() = myDataset.size
+    }
 }
+
