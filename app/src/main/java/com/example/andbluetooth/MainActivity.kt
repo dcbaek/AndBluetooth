@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     private val REQUEST_ENABLE_BT = 1
     private var bluetoothAdapter: BluetoothAdapter? = null
 
-    private val REQUEST_PERMISSIONS = 2
+    private val REQUEST_ALL_PERMISSION = 2
     private val PERMISSIONS = arrayOf(
         Manifest.permission.ACCESS_FINE_LOCATION
     )
@@ -112,15 +112,19 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         when (requestCode) {
-            REQUEST_PERMISSIONS -> {
+            REQUEST_ALL_PERMISSION -> {
                 //if request is cancelled, the result arrays are empty.
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Toast.makeText(this, "Permission must be granted", Toast.LENGTH_SHORT).show()
+                } else {
+                    requestPermissions(permissions, REQUEST_ALL_PERMISSION)
+                    Toast.makeText(this, "Permissions must be granted", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -200,5 +204,8 @@ class RecyclerViewAdapter(private val myDataset: ArrayList<BluetoothDevice>):
 
     override fun getItemCount() = myDataset.size
     }
+}
+private fun Handler.postDelayed(function: () -> Unit?, scanPeriod: Int) {
+
 }
 
