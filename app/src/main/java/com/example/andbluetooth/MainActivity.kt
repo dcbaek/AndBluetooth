@@ -1,8 +1,10 @@
 package com.example.andbluetooth
 
 import android.Manifest
+import android.annotation.TargetApi
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -44,6 +46,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewManager: RecyclerView.LayoutManager
     private lateinit var recyclerViewAdapter: RecyclerViewAdapter
+
+    //BLE Gatt
+    private var bleGatt: BluetoothGatt? = null
+    private var mContext:Context? = null
 
     private val mLeScanCallback = @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     object : ScanCallback() {
@@ -124,10 +130,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.M)
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        mContext = this
 
         val bleOnOffBtn:ToggleButton = findViewById(R.id.ble_on_off_btn)
         val scanBtn: Button = findViewById(R.id.scanBtn)
@@ -136,6 +146,15 @@ class MainActivity : AppCompatActivity() {
 
         viewManager = LinearLayoutManager(this)
         recyclerViewAdapter = RecyclerViewAdapter(devicesArr)
+
+        recyclerViewAdapter.mListener = object : RecyclerViewAdapter.OnItemClickListener{
+            override fun onClick(view: View, position: Int) {
+                scanDevice(false) //scan 중지
+                val device = devicesArr.get(position)
+                bleGatt = DeviceControlActivity(mContext, bleGatt).connectGatt(device)
+            }
+        }
+
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView).apply {
             layoutManager = viewManager
             adapter = recyclerViewAdapter
@@ -152,14 +171,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        bleOnOffBtn.setOnCheckedChangeListener {
-                _,
-                isChecked -> bluetoothOnOff()
-                scanBtn.visibility = if(scanBtn.visibility == View.VISIBLE) {
+        bleOnOffBtn.setOnCheckedChangeListener { _, isChecked ->
+            bluetoothOnOff()
+            scanBtn.visibility =
+                if (scanBtn.visibility == View.VISIBLE){
                     View.INVISIBLE
                 } else {
                     View.VISIBLE
                 }
+            if (scanBtn.visibility == View.INVISIBLE){
+                scanDevice(false)
+                devicesArr.clear()
+                recyclerViewAdapter.notifyDataSetChanged()
+            }
         }
 
         scanBtn.setOnClickListener{
@@ -184,11 +208,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-class RecyclerViewAdapter(private val myDataset: ArrayList<BluetoothDevice>):
+class RecyclerViewAdapter(
+    private val myDataset: ArrayList<BluetoothDevice>):
         RecyclerView.Adapter<RecyclerViewAdapter.MyViewHolder> () {
-            class MyViewHolder(val linearView: LinearLayout):RecyclerView.ViewHolder(linearView)
+
+        var mListener : OnItemClickListener? = null
+
+        interface OnItemClickListener {
+            fun onClick(view: View, position: Int)
+        }
+
+            class MyViewHolder(
+                val linearView: LinearLayout):RecyclerView.ViewHolder(linearView)
             override fun onCreateViewHolder(parent: ViewGroup,
-            viewType: Int):RecyclerViewAdapter.MyViewHolder {
+                                            viewType: Int):RecyclerViewAdapter.MyViewHolder {
                 //create a new view
                 val linearView = LayoutInflater.from(parent.context)
                     .inflate(R.layout.recyclerview_item, parent, false) as LinearLayout
@@ -200,6 +233,11 @@ class RecyclerViewAdapter(private val myDataset: ArrayList<BluetoothDevice>):
         val itemAddress: TextView = holder.linearView.findViewById(R.id.item_address)
         itemName.text = myDataset[position].name
         itemAddress.text = myDataset[position].address
+        if(mListener!=null) {
+            holder?.itemView?.setOnClickListener{v->
+                mListener?.onClick(v, position)
+            }
+        }
     }
 
     override fun getItemCount() = myDataset.size
