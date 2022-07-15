@@ -1,9 +1,6 @@
 package com.example.andbluetooth
 
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothProfile
+import android.bluetooth.*
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -11,6 +8,12 @@ import android.os.Looper
 import android.os.Message
 import android.util.Log
 import android.widget.Toast
+import java.util.*
+
+var UART_UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+var TX_CHAR_UUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e")
+var CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
 
 private val TAG = "gattClienCallback"
 
@@ -23,7 +26,8 @@ class DeviceControlActivity(private val context: Context?, private var bluetooth
                 BluetoothProfile.STATE_CONNECTED -> {
                     Log.i(TAG, "Connected to GATT server.")
                     Log.i(TAG, "Attempting to start service discovery: " +
-                    bluetoothGatt?.discoverServices())
+                            bluetoothGatt?.discoverServices()
+                    )
                 }
                 BluetoothProfile.STATE_CONNECTED -> {
                     Log.i(TAG, "Disconnected from GATT server.")
@@ -36,15 +40,36 @@ class DeviceControlActivity(private val context: Context?, private var bluetooth
             super.onServicesDiscovered(gatt, status)
             when (status) {
                 BluetoothGatt.GATT_SUCCESS -> {
-                    Log.i(TAG, "Connected to GATT_SUCCESS")
-                    broadcastUpdate("Connected " + device?.name)
+
+                    var tx = gatt?.getService(UART_UUID)!!.getCharacteristic(TX_CHAR_UUID)
+
+                    if (gatt.setCharacteristicNotification(tx, true)) {
+                        val descriptor: BluetoothGattDescriptor = tx.getDescriptor(CCCD_UUID)
+                        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        gatt.writeDescriptor(descriptor)
+                        Log.i(TAG, "Connected to GATT_SUCCESS")
+                        broadcastUpdate("Connected " + device?.name)
+                    }
                 }
-                else -> {
-                    Log.w(TAG, "Device service discovery failed, status : $status")
-                    broadcastUpdate("Fail Connect " + device?.name)
-                }
+                    else -> {
+                        Log.w(TAG, "Device service discovery failed, status : $status")
+                        broadcastUpdate("Fail Connect " + device?.name)
+                    }
             }
         }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            super.onCharacteristicChanged(gatt, characteristic)
+            val data = characteristic!!.value
+            var str = String(data)
+            Log.d(TAG, str)
+        }
+
+        
+
         private  fun broadcastUpdate(str:String) {
             val mHandler : Handler = object : Handler(Looper.getMainLooper()) {
                 override fun handleMessage(msg: Message) {
